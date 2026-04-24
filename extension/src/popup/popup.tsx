@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
-const APP_URL = "http://localhost:3000"; // swapped to prod URL post-deploy
+const APP_URL = "https://vantage-three-murex.vercel.app";
 
 type Status = "idle" | "scanning" | "confirming" | "filling" | "done" | "error";
 
