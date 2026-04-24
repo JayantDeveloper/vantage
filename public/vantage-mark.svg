@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 310" role="img" aria-label="Vantage mark">
+  <!-- Upper wing -->
+  <polygon points="48,38 48,158 230,158" fill="#1a2948"/>
+  <!-- Lower wing -->
+  <polygon points="48,168 48,288 230,168" fill="#1a2948"/>
+  <!-- Teal accents -->
+  <polygon points="48,98 140,158 48,158" fill="#2dcfbe" opacity="0.9"/>
+  <polygon points="48,168 140,168 48,228" fill="#2dcfbe" opacity="0.88"/>
+  <!-- Hub -->
+  <circle cx="152" cy="163" r="11" fill="#2dcfbe"/>
+  <!-- Spokes -->
+  <line x1="141" y1="155" x2="122" y2="147" stroke="#2dcfbe" stroke-width="1.8"/>
+  <line x1="163" y1="155" x2="182" y2="145" stroke="#2dcfbe" stroke-width="1.8"/>
+  <line x1="152" y1="152" x2="152" y2="133" stroke="#2dcfbe" stroke-width="1.8"/>
+  <line x1="143" y1="172" x2="134" y2="185" stroke="#2dcfbe" stroke-width="1.8"/>
+  <line x1="161" y1="172" x2="170" y2="185" stroke="#2dcfbe" stroke-width="1.8"/>
+  <!-- Satellites -->
+  <circle cx="121" cy="146" r="6"  fill="#2dcfbe"/>
+  <circle cx="183" cy="143" r="8"  fill="#2dcfbe"/>
+  <circle cx="152" cy="130" r="6"  fill="#2dcfbe"/>
+  <circle cx="133" cy="187" r="5"  fill="#2dcfbe"/>
+  <circle cx="171" cy="187" r="6"  fill="#2dcfbe"/>
+  <!-- Triangle outlines -->
+  <polygon points="144,137 156,137 150,125" fill="none" stroke="#2dcfbe" stroke-width="1.5"/>
+  <polygon points="168,154 178,148 178,160" fill="none" stroke="#2dcfbe" stroke-width="1.5"/>
+  <polygon points="144,174 156,174 150,186" fill="none" stroke="#2dcfbe" stroke-width="1.5"/>
+  <!-- Snowflake -->
+  <g transform="translate(107,163)">
+    <line x1="-10" y1="0"  x2="10" y2="0"   stroke="#1a2948" stroke-width="2"/>
+    <line x1="0"  y1="-10" x2="0"  y2="10"  stroke="#1a2948" stroke-width="2"/>
+    <line x1="-7" y1="-7"  x2="7"  y2="7"   stroke="#1a2948" stroke-width="2"/>
+    <line x1="7"  y1="-7"  x2="-7" y2="7"   stroke="#1a2948" stroke-width="2"/>
+    <polygon points="0,-5 4.3,2.5 -4.3,2.5" fill="#1a2948"/>
+  </g>
+  <line x1="117" y1="163" x2="141" y2="163" stroke="#2dcfbe" stroke-width="1.5"/>
+</svg>

@@ -82,10 +82,19 @@ function Popup() {
     <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: 700, fontSize: "16px", letterSpacing: "-0.3px" }}>
-          Vantage AutoFill
-        </span>
-        <span style={{ fontSize: "11px", color: "#71717a", fontFamily: "monospace" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <img
+            src={`${APP_URL}/vantage-mark.svg`}
+            alt="Vantage"
+            width={28}
+            height={29}
+            style={{ display: "block" }}
+          />
+          <span style={{ fontWeight: 800, fontSize: "15px", letterSpacing: "-0.2px", color: "#fafafa" }}>
+            Vantage
+          </span>
+        </div>
+        <span style={{ fontSize: "10px", color: "#52525b", fontFamily: "monospace" }}>
           v1.0.0
         </span>
       </div>

@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { NavLogo } from "@/components/logo";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -41,9 +42,7 @@ export default async function DashboardPage() {
     <div className="min-h-screen bg-black text-white flex flex-col">
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
-        <Link href="/" className="text-xl font-bold tracking-tight">
-          Vantage
-        </Link>
+        <NavLogo />
         <div className="flex items-center gap-6">
           <Link href="/opportunities" className="text-sm text-zinc-400 hover:text-white transition-colors">
             Opportunities

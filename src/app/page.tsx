@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { NavLogo } from "@/components/logo";
 
 export default function Home() {
   const { isSignedIn } = useAuth();
@@ -11,7 +12,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-black text-white">
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
-        <span className="text-xl font-bold tracking-tight">Vantage</span>
+        <NavLogo />
         <div className="flex items-center gap-4">
           {isSignedIn ? (
             <>

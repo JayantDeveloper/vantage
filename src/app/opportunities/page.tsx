@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase";
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import { NavLogo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +26,7 @@ export default async function OpportunitiesPage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
-        <Link href="/" className="text-xl font-bold tracking-tight">Vantage</Link>
+        <NavLogo />
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white transition-colors">
             Dashboard

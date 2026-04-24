@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 510" role="img" aria-label="Vantage logo">
+  <!-- ── UPPER WING (dark navy) ── -->
+  <polygon points="88,72 88,222 370,222" fill="#1a2948"/>
+
+  <!-- ── LOWER WING (dark navy) ── -->
+  <polygon points="88,242 88,392 370,242" fill="#1a2948"/>
+
+  <!-- ── TEAL ACCENTS on inner-left of each wing ── -->
+  <polygon points="88,148 218,222 88,222" fill="#2dcfbe" opacity="0.9"/>
+  <polygon points="88,242 218,242 88,316" fill="#2dcfbe" opacity="0.88"/>
+
+  <!-- ── NETWORK: hub + spokes + satellites ── -->
+  <!-- Hub -->
+  <circle cx="244" cy="232" r="17" fill="#2dcfbe"/>
+
+  <!-- Spoke lines from hub -->
+  <line x1="228" y1="221" x2="198" y2="208" stroke="#2dcfbe" stroke-width="2.4"/>
+  <line x1="260" y1="221" x2="294" y2="204" stroke="#2dcfbe" stroke-width="2.4"/>
+  <line x1="244" y1="215" x2="244" y2="186" stroke="#2dcfbe" stroke-width="2.4"/>
+  <line x1="230" y1="244" x2="216" y2="264" stroke="#2dcfbe" stroke-width="2.4"/>
+  <line x1="258" y1="244" x2="276" y2="264" stroke="#2dcfbe" stroke-width="2.4"/>
+  <line x1="244" y1="249" x2="244" y2="274" stroke="#2dcfbe" stroke-width="2.4"/>
+  <line x1="228" y1="232" x2="198" y2="232" stroke="#2dcfbe" stroke-width="2.4"/>
+
+  <!-- Satellite nodes -->
+  <circle cx="196" cy="207" r="9"  fill="#2dcfbe"/>
+  <circle cx="294" cy="202" r="13" fill="#2dcfbe"/>
+  <circle cx="244" cy="183" r="9"  fill="#2dcfbe"/>
+  <circle cx="214" cy="266" r="8"  fill="#2dcfbe"/>
+  <circle cx="277" cy="266" r="10" fill="#2dcfbe"/>
+  <circle cx="244" cy="276" r="8"  fill="#2dcfbe"/>
+
+  <!-- Small triangle outlines (right-pointing, scattered) -->
+  <polygon points="232,198 250,198 241,183" fill="none" stroke="#2dcfbe" stroke-width="2"/>
+  <polygon points="276,212 293,202 293,222" fill="none" stroke="#2dcfbe" stroke-width="2"/>
+  <polygon points="232,258 250,258 241,274" fill="none" stroke="#2dcfbe" stroke-width="2"/>
+  <polygon points="203,222 219,213 219,231" fill="none" stroke="#2dcfbe" stroke-width="2"/>
+  <polygon points="266,228 282,218 282,238" fill="none" stroke="#2dcfbe" stroke-width="2"/>
+
+  <!-- ── SNOWFLAKE / star node (left of network) ── -->
+  <g transform="translate(175,232)">
+    <line x1="-14" y1="0"   x2="14" y2="0"   stroke="#1a2948" stroke-width="2.5"/>
+    <line x1="0"   y1="-14" x2="0"  y2="14"  stroke="#1a2948" stroke-width="2.5"/>
+    <line x1="-10" y1="-10" x2="10" y2="10"  stroke="#1a2948" stroke-width="2.5"/>
+    <line x1="10"  y1="-10" x2="-10" y2="10" stroke="#1a2948" stroke-width="2.5"/>
+    <polygon points="0,-7 6,3.5 -6,3.5" fill="#1a2948"/>
+    <circle cx="-14" cy="0"  r="2.2" fill="#1a2948"/>
+    <circle cx="14"  cy="0"  r="2.2" fill="#1a2948"/>
+    <circle cx="0"  cy="-14" r="2.2" fill="#1a2948"/>
+    <circle cx="0"  cy="14"  r="2.2" fill="#1a2948"/>
+  </g>
+  <!-- Connector: snowflake → hub -->
+  <line x1="189" y1="232" x2="227" y2="232" stroke="#2dcfbe" stroke-width="2"/>
+
+  <!-- ── WORDMARK ── -->
+  <text
+    x="240" y="463"
+    text-anchor="middle"
+    font-family="'Arial Black', 'Impact', 'Haettenschweiler', sans-serif"
+    font-size="82"
+    font-weight="900"
+    fill="#c4195a"
+    letter-spacing="7">VANTAGE</text>
+</svg>

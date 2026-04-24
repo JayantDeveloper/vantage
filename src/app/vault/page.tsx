@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { NavLogo } from "@/components/logo";
 
 export default function VaultPage() {
   const { user, isLoaded } = useUser();
@@ -52,7 +53,7 @@ export default function VaultPage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
-        <Link href="/" className="text-xl font-bold tracking-tight">Vantage</Link>
+        <NavLogo />
         <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white transition-colors">
           ← Dashboard
         </Link>
