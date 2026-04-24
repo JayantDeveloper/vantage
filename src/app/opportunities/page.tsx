@@ -5,14 +5,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-export const revalidate = 3600; // ISR: revalidate every hour
+// Force dynamic — Supabase admin client requires the service role key at runtime,
+// and opportunities data changes frequently enough that ISR pre-rendering isn't worth it.
+export const dynamic = "force-dynamic";
 
 export default async function OpportunitiesPage() {
-  const admin = createAdminClient();
-  const { data: opps } = await admin
-    .from("opportunities")
-    .select("*")
-    .order("match_score", { ascending: false });
+  let opps: import("@/lib/supabase").Opportunity[] | null = null;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("opportunities")
+      .select("*")
+      .order("match_score", { ascending: false });
+    opps = data;
+  } catch {
+    // Service role key not yet configured
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">

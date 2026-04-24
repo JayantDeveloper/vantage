@@ -8,7 +8,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Server-side admin client (bypasses RLS — server only)
 export function createAdminClient() {
-  return createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey || serviceKey.startsWith("placeholder")) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
+  }
+  return createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
 }

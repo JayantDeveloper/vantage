@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -12,16 +14,20 @@ export default async function DashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const admin = createAdminClient();
+  let vault = null;
+  let opps: { id: string; title: string; url: string; deadline: string | null; match_score: number | null; description: string | null; source: string | null; scraped_at: string }[] | null = null;
 
-  const [{ data: vault }, { data: opps }] = await Promise.all([
-    admin.from("vault").select("*").eq("user_id", userId).single(),
-    admin
-      .from("opportunities")
-      .select("*")
-      .order("match_score", { ascending: false })
-      .limit(5),
-  ]);
+  try {
+    const admin = createAdminClient();
+    const [vaultRes, oppsRes] = await Promise.all([
+      admin.from("vault").select("*").eq("user_id", userId).single(),
+      admin.from("opportunities").select("*").order("match_score", { ascending: false }).limit(5),
+    ]);
+    vault = vaultRes.data;
+    opps = oppsRes.data;
+  } catch {
+    // Service role key not yet configured — show empty state
+  }
 
   const deadlineSoon = opps?.filter((o) => {
     if (!o.deadline) return false;
