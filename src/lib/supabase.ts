@@ -33,7 +33,7 @@ export type Vault = {
   updated_at: string;
 };
 
-export type OpportunityCategory = "scholarship" | "grant" | "event" | "news";
+export type OpportunityCategory = "scholarship" | "grant" | "event";
 
 export type Opportunity = {
   id: string;

@@ -97,7 +97,7 @@ const TARGET_URLS: Array<{ url: string; label: string }> = [
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Category = "scholarship" | "grant" | "event" | "news";
+type Category = "scholarship" | "grant" | "event";
 
 type ScrapedOpportunity = {
   title:       string;
@@ -370,50 +370,6 @@ async function syncTerpLink(auditLog: AuditRow[]): Promise<void> {
   }
 }
 
-// ── CS News RSS worker ────────────────────────────────────────────────────────
-async function syncCsNews(auditLog: AuditRow[]): Promise<void> {
-  console.log("\n  Fetching: UMD CS News RSS");
-  try {
-    const resp = await fetch("https://www.cs.umd.edu/feeds/news/all", { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) { console.warn(`    ⚠ CS News RSS returned ${resp.status}`); return; }
-
-    const xml = await resp.text();
-    const items = xml.split("<item>").slice(1);
-    console.log(`    ${items.length} articles received`);
-
-    const get = (block: string, tag: string) =>
-      block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`))?.[1]?.trim()
-      ?? block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`))?.[1]?.trim()
-      ?? null;
-
-    let ok = 0, failed = 0;
-    for (const item of items) {
-      const title   = get(item, "title");
-      const link    = get(item, "link");
-      const pubDate = get(item, "pubDate");
-      const desc    = get(item, "description");
-      if (!title || !link) continue;
-
-      const deadline = pubDate ? new Date(pubDate).toISOString().split("T")[0] : null;
-      const row = {
-        title,
-        url:         link,
-        deadline,
-        description: desc ? desc.replace(/<[^>]+>/g, "").slice(0, 400) : null,
-        source:      "cs.umd.edu",
-        category:    "news" as Category,
-        scraped_at:  new Date().toISOString(),
-      };
-
-      const { error } = await supabase.from("opportunities").upsert(row, { onConflict: "url", ignoreDuplicates: false });
-      auditLog.push({ title, url: link, deadline_raw: pubDate, deadline_resolved: deadline, resolution: deadline ? "iso" : "already_null", category: "news", status: error ? "failed" : "ok", error: error?.message });
-      error ? failed++ : ok++;
-    }
-    console.log(`    → ${ok} ok, ${failed} failed`);
-  } catch (err) {
-    console.error("  ✗ CS News fatal:", err);
-  }
-}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
@@ -433,7 +389,6 @@ async function main() {
   }
 
   await syncTerpLink(auditLog);
-  await syncCsNews(auditLog);
 
   printAuditReport(auditLog, Date.now() - start);
   console.log("Scout complete.");

@@ -16,7 +16,6 @@ const TABS: { key: FilterTab; label: string }[] = [
   { key: "scholarship", label: "Scholarships" },
   { key: "grant",       label: "Grants" },
   { key: "event",       label: "Events" },
-  { key: "news",        label: "News" },
 ];
 
 export default function OpportunitiesPage() {
@@ -145,7 +144,7 @@ export default function OpportunitiesPage() {
                       <div className="flex items-center gap-3 text-xs">
                         {opp.deadline && (
                           <span className={urgent ? "text-[#c4195a]" : upcoming ? "text-yellow-500/80" : "text-zinc-600"}>
-                            {opp.category === "event" ? "Starts" : opp.category === "news" ? "Published" : "Deadline"}:{" "}
+                            {opp.category === "event" ? "Starts" : "Deadline"}:{" "}
                             {new Date(opp.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                           </span>
                         )}
@@ -165,7 +164,7 @@ export default function OpportunitiesPage() {
                       )}
                       <a href={opp.url} target="_blank" rel="noopener noreferrer">
                         <Button size="sm" className="bg-[#2dcfbe]/10 border border-[#2dcfbe]/25 text-[#2dcfbe] hover:bg-[#2dcfbe]/20 h-8 text-xs font-medium">
-                          {opp.category === "event" ? "View →" : opp.category === "news" ? "Read →" : "Apply →"}
+                          {opp.category === "event" ? "View →" : "Apply →"}
                         </Button>
                       </a>
                     </div>
@@ -184,7 +183,6 @@ function CategoryPill({ category }: { category: string | null }) {
   if (!category || category === "scholarship") return null;
   const styles: Record<string, string> = {
     event: "bg-purple-500/15 text-purple-400 border-purple-500/25",
-    news:  "bg-blue-500/15 text-blue-400 border-blue-500/25",
     grant: "bg-orange-500/15 text-orange-400 border-orange-500/25",
   };
   return (
