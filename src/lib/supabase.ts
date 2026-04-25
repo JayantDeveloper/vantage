@@ -33,6 +33,8 @@ export type Vault = {
   updated_at: string;
 };
 
+export type OpportunityCategory = "scholarship" | "grant" | "event" | "news";
+
 export type Opportunity = {
   id: string;
   title: string;
@@ -41,5 +43,6 @@ export type Opportunity = {
   match_score: number | null;
   description: string | null;
   source: string | null;
+  category: OpportunityCategory | null;
   scraped_at: string;
 };

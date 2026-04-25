@@ -97,6 +97,8 @@ const TARGET_URLS: Array<{ url: string; label: string }> = [
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+type Category = "scholarship" | "grant" | "event" | "news";
+
 type ScrapedOpportunity = {
   title:       string;
   url:         string;
@@ -104,6 +106,7 @@ type ScrapedOpportunity = {
   description: string | null;
   source:      string;
   label:       string;
+  category:    Category;
 };
 
 type AuditRow = {
@@ -113,6 +116,7 @@ type AuditRow = {
   deadline_resolved:  string | null;
   resolution:         DeadlineResolution;
   status:             "ok" | "failed";
+  category:           Category;
   error?:             string;
 };
 
@@ -129,9 +133,10 @@ async function scrapePage(
   console.log(`\n  Scraping: ${target.label}`);
 
   const result = await firecrawl.scrape(target.url, {
-    formats: ["extract"],
-    extract: {
-      prompt: `Extract ALL scholarships, grants, and financial aid programs listed on this page.
+    formats: [
+      {
+        type: "json",
+        prompt: `Extract ALL scholarships, grants, and financial aid programs listed on this page.
 For each opportunity return:
   - title: the full official name (string)
   - url: direct link to the scholarship detail page, or this page's URL if none exists (string)
@@ -141,41 +146,43 @@ For each opportunity return:
 
 Return a JSON object with key "opportunities" containing an array of the above objects.
 If no scholarships are found on this page, return { "opportunities": [] }.`,
-      schema: {
-        type: "object",
-        properties: {
-          opportunities: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                title:       { type: "string" },
-                url:         { type: "string" },
-                deadline:    { type: "string", nullable: true },
-                description: { type: "string", nullable: true },
+        schema: {
+          type: "object",
+          properties: {
+            opportunities: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title:       { type: "string" },
+                  url:         { type: "string" },
+                  deadline:    { type: "string", nullable: true },
+                  description: { type: "string", nullable: true },
+                },
+                required: ["title", "url"],
               },
-              required: ["title", "url"],
             },
           },
+          required: ["opportunities"],
         },
-        required: ["opportunities"],
       },
-    },
+    ],
   });
 
-  if (!result.success || !result.extract) {
-    console.warn(`    ⚠ No extract returned`);
+  if (!result.json) {
+    console.warn(`    ⚠ No json returned`);
     return [];
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const items: ScrapedOpportunity[] = ((result.extract as any).opportunities ?? []);
+  const items: ScrapedOpportunity[] = ((result.json as any).opportunities ?? []);
   return items.map((item) => ({
     ...item,
     deadline:    item.deadline ?? null,
     description: item.description ?? null,
     source:      new URL(target.url).hostname,
     label:       target.label,
+    category:    "scholarship" as Category,
   }));
 }
 
@@ -200,9 +207,10 @@ async function upsertOpportunities(
     const row = {
       title:       opp.title,
       url:         opp.url,
-      deadline,                      // normalised or null — always Postgres-safe
+      deadline,
       description: opp.description,
       source:      opp.source,
+      category:    opp.category,
       scraped_at:  new Date().toISOString(),
       // match_score: intentionally omitted
     };
@@ -218,6 +226,7 @@ async function upsertOpportunities(
       deadline_raw:      opp.deadline,
       deadline_resolved: deadline,
       resolution,
+      category:          opp.category,
       status:            error ? "failed" : "ok",
       error:             error?.message,
     };
@@ -320,10 +329,96 @@ function printAuditReport(auditLog: AuditRow[], elapsed: number): void {
   console.log("═══════════════════════════════════════════════════════════════\n");
 }
 
+// ── TerpLink worker ───────────────────────────────────────────────────────────
+async function syncTerpLink(auditLog: AuditRow[]): Promise<void> {
+  console.log("\n  Fetching: TerpLink campus events");
+  try {
+    const resp = await fetch(
+      "https://terplink.umd.edu/api/discovery/event/search?status=Approved&take=300",
+      { headers: { "User-Agent": "VantageBot/1.0", "Accept": "application/json" }, signal: AbortSignal.timeout(15000) }
+    );
+    if (!resp.ok) { console.warn(`    ⚠ TerpLink returned ${resp.status}`); return; }
+
+    const data = await resp.json() as { value?: any[] };
+    const events = data.value ?? [];
+    console.log(`    ${events.length} events received`);
+
+    let ok = 0, failed = 0;
+    for (const e of events) {
+      const id  = e.id ?? "";
+      const url = `https://terplink.umd.edu/event/${id}`;
+      const start = e.startsOn ? new Date(e.startsOn).toISOString().split("T")[0] : null;
+
+      const row = {
+        title:       (e.name ?? "").trim(),
+        url,
+        deadline:    start,
+        description: e.description ? String(e.description).replace(/<[^>]+>/g, "").slice(0, 400) : null,
+        source:      "terplink.umd.edu",
+        category:    "event" as Category,
+        scraped_at:  new Date().toISOString(),
+      };
+      if (!row.title || !row.url) continue;
+
+      const { error } = await supabase.from("opportunities").upsert(row, { onConflict: "url", ignoreDuplicates: false });
+      auditLog.push({ title: row.title, url, deadline_raw: e.startsOn ?? null, deadline_resolved: start, resolution: start ? "iso" : "already_null", category: "event", status: error ? "failed" : "ok", error: error?.message });
+      error ? failed++ : ok++;
+    }
+    console.log(`    → ${ok} ok, ${failed} failed`);
+  } catch (err) {
+    console.error("  ✗ TerpLink fatal:", err);
+  }
+}
+
+// ── CS News RSS worker ────────────────────────────────────────────────────────
+async function syncCsNews(auditLog: AuditRow[]): Promise<void> {
+  console.log("\n  Fetching: UMD CS News RSS");
+  try {
+    const resp = await fetch("https://www.cs.umd.edu/feeds/news/all", { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) { console.warn(`    ⚠ CS News RSS returned ${resp.status}`); return; }
+
+    const xml = await resp.text();
+    const items = xml.split("<item>").slice(1);
+    console.log(`    ${items.length} articles received`);
+
+    const get = (block: string, tag: string) =>
+      block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`))?.[1]?.trim()
+      ?? block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`))?.[1]?.trim()
+      ?? null;
+
+    let ok = 0, failed = 0;
+    for (const item of items) {
+      const title   = get(item, "title");
+      const link    = get(item, "link");
+      const pubDate = get(item, "pubDate");
+      const desc    = get(item, "description");
+      if (!title || !link) continue;
+
+      const deadline = pubDate ? new Date(pubDate).toISOString().split("T")[0] : null;
+      const row = {
+        title,
+        url:         link,
+        deadline,
+        description: desc ? desc.replace(/<[^>]+>/g, "").slice(0, 400) : null,
+        source:      "cs.umd.edu",
+        category:    "news" as Category,
+        scraped_at:  new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from("opportunities").upsert(row, { onConflict: "url", ignoreDuplicates: false });
+      auditLog.push({ title, url: link, deadline_raw: pubDate, deadline_resolved: deadline, resolution: deadline ? "iso" : "already_null", category: "news", status: error ? "failed" : "ok", error: error?.message });
+      error ? failed++ : ok++;
+    }
+    console.log(`    → ${ok} ok, ${failed} failed`);
+  } catch (err) {
+    console.error("  ✗ CS News fatal:", err);
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   console.log("Vantage Scout starting…");
-  console.log(`Targeting ${TARGET_URLS.length} portals\n`);
+  console.log(`Targeting ${TARGET_URLS.length} scholarship portals + TerpLink + CS News\n`);
 
   const auditLog: AuditRow[] = [];
   const start = Date.now();
@@ -336,6 +431,9 @@ async function main() {
       console.error(`  ✗ Fatal error scraping ${target.label}:`, err);
     }
   }
+
+  await syncTerpLink(auditLog);
+  await syncCsNews(auditLog);
 
   printAuditReport(auditLog, Date.now() - start);
   console.log("Scout complete.");
