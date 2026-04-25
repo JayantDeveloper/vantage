@@ -24,6 +24,11 @@ export type Vault = {
   bio_text: string | null;
   is_first_gen: boolean;
   gpa: number | null;
+  // Context-First fields
+  context_dump: string | null;
+  narrative: string | null;
+  major: string | null;
+  skills: string[];
   created_at: string;
   updated_at: string;
 };
