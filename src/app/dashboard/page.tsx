@@ -12,8 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  let userId: string | null = null;
+  try {
+    const result = await auth();
+    userId = result.userId;
+  } catch {
+    // Clerk not configured
+  }
+  if (!userId) redirect("/");
 
   let vault = null;
   let opps: { id: string; title: string; url: string; deadline: string | null; match_score: number | null; description: string | null; source: string | null; scraped_at: string }[] | null = null;
