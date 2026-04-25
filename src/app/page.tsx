@@ -43,10 +43,6 @@ export default function Home() {
       {/* Hero */}
       <main className="relative flex flex-1 flex-col items-center justify-center text-center px-6 gap-10">
         <div className="space-y-5 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#2dcfbe]/30 bg-[#2dcfbe]/8 text-[#2dcfbe] text-xs font-mono tracking-widest uppercase">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2dcfbe] animate-pulse" />
-            Campus Opportunity Autopilot
-          </div>
           <h1 className="text-5xl font-extrabold tracking-tight leading-tight">
             Never miss a{" "}
             <span className="bg-gradient-to-r from-[#2dcfbe] to-[#1a9e91] bg-clip-text text-transparent">
