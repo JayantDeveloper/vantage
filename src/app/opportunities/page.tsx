@@ -15,7 +15,10 @@ const TABS: { key: FilterTab; label: string }[] = [
   { key: "all",         label: "All" },
   { key: "scholarship", label: "Scholarships" },
   { key: "grant",       label: "Grants" },
-  { key: "event",       label: "Events" },
+  { key: "fellowship",  label: "Fellowships" },
+  { key: "award",       label: "Awards" },
+  { key: "research",    label: "Research" },
+  { key: "internship",  label: "Internships" },
 ];
 
 export default function OpportunitiesPage() {
@@ -144,7 +147,7 @@ export default function OpportunitiesPage() {
                       <div className="flex items-center gap-3 text-xs">
                         {opp.deadline && (
                           <span className={urgent ? "text-[#c4195a]" : upcoming ? "text-yellow-500/80" : "text-zinc-600"}>
-                            {opp.category === "event" ? "Starts" : "Deadline"}:{" "}
+                            Deadline:{" "}
                             {new Date(opp.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                           </span>
                         )}
@@ -164,7 +167,7 @@ export default function OpportunitiesPage() {
                       )}
                       <a href={opp.url} target="_blank" rel="noopener noreferrer">
                         <Button size="sm" className="bg-[#2dcfbe]/10 border border-[#2dcfbe]/25 text-[#2dcfbe] hover:bg-[#2dcfbe]/20 h-8 text-xs font-medium">
-                          {opp.category === "event" ? "View →" : "Apply →"}
+                          Apply →
                         </Button>
                       </a>
                     </div>
@@ -182,8 +185,11 @@ export default function OpportunitiesPage() {
 function CategoryPill({ category }: { category: string | null }) {
   if (!category || category === "scholarship") return null;
   const styles: Record<string, string> = {
-    event: "bg-purple-500/15 text-purple-400 border-purple-500/25",
-    grant: "bg-orange-500/15 text-orange-400 border-orange-500/25",
+    grant:       "bg-orange-500/15 text-orange-400 border-orange-500/25",
+    fellowship:  "bg-purple-500/15 text-purple-400 border-purple-500/25",
+    award:       "bg-yellow-500/15 text-yellow-400 border-yellow-500/25",
+    research:    "bg-blue-500/15 text-blue-400 border-blue-500/25",
+    internship:  "bg-green-500/15 text-green-400 border-green-500/25",
   };
   return (
     <span className={`shrink-0 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${styles[category] ?? "bg-zinc-800 text-zinc-500 border-white/10"}`}>

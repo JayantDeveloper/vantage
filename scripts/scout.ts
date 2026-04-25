@@ -97,7 +97,7 @@ const TARGET_URLS: Array<{ url: string; label: string }> = [
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Category = "scholarship" | "grant" | "event";
+type Category = "scholarship" | "grant" | "fellowship" | "award" | "research" | "internship";
 
 type ScrapedOpportunity = {
   title:       string;
@@ -136,16 +136,20 @@ async function scrapePage(
     formats: [
       {
         type: "json",
-        prompt: `Extract ALL scholarships, grants, and financial aid programs listed on this page.
+        prompt: `Extract ALL student opportunities listed on this page that require submitting an application or form.
+This includes: scholarships, grants, fellowships, awards, research programs, internships, assistantships, and any other competitive program a UMD student would apply to.
+Do NOT include general campus events, news articles, or informational pages.
+
 For each opportunity return:
   - title: the full official name (string)
-  - url: direct link to the scholarship detail page, or this page's URL if none exists (string)
+  - url: direct link to the opportunity detail/application page, or this page's URL if none exists (string)
   - deadline: the application deadline EXACTLY as written on the page (string or null).
-    Do NOT convert it — return the raw text (e.g. "June 1, 2026", "Varies", "Rolling", "Expected Open September 2026").
-  - description: 1–3 sentence summary of eligibility and award amount (string or null)
+    Do NOT convert it — return the raw text (e.g. "June 1, 2026", "Varies", "Rolling").
+  - description: 1–3 sentence summary of eligibility and award/benefit (string or null)
+  - category: one of "scholarship", "grant", "fellowship", "award", "research", "internship" — pick the best fit
 
 Return a JSON object with key "opportunities" containing an array of the above objects.
-If no scholarships are found on this page, return { "opportunities": [] }.`,
+If no applicable opportunities are found, return { "opportunities": [] }.`,
         schema: {
           type: "object",
           properties: {
@@ -158,6 +162,7 @@ If no scholarships are found on this page, return { "opportunities": [] }.`,
                   url:         { type: "string" },
                   deadline:    { type: "string", nullable: true },
                   description: { type: "string", nullable: true },
+                  category:    { type: "string", nullable: true },
                 },
                 required: ["title", "url"],
               },
@@ -174,15 +179,17 @@ If no scholarships are found on this page, return { "opportunities": [] }.`,
     return [];
   }
 
+  const VALID_CATEGORIES = new Set<Category>(["scholarship", "grant", "fellowship", "award", "research", "internship"]);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const items: ScrapedOpportunity[] = ((result.json as any).opportunities ?? []);
+  const items: any[] = ((result.json as any).opportunities ?? []);
   return items.map((item) => ({
     ...item,
     deadline:    item.deadline ?? null,
     description: item.description ?? null,
     source:      new URL(target.url).hostname,
     label:       target.label,
-    category:    "scholarship" as Category,
+    category:    (VALID_CATEGORIES.has(item.category) ? item.category : "scholarship") as Category,
   }));
 }
 
@@ -329,52 +336,10 @@ function printAuditReport(auditLog: AuditRow[], elapsed: number): void {
   console.log("═══════════════════════════════════════════════════════════════\n");
 }
 
-// ── TerpLink worker ───────────────────────────────────────────────────────────
-async function syncTerpLink(auditLog: AuditRow[]): Promise<void> {
-  console.log("\n  Fetching: TerpLink campus events");
-  try {
-    const resp = await fetch(
-      "https://terplink.umd.edu/api/discovery/event/search?status=Approved&take=300",
-      { headers: { "User-Agent": "VantageBot/1.0", "Accept": "application/json" }, signal: AbortSignal.timeout(15000) }
-    );
-    if (!resp.ok) { console.warn(`    ⚠ TerpLink returned ${resp.status}`); return; }
-
-    const data = await resp.json() as { value?: any[] };
-    const events = data.value ?? [];
-    console.log(`    ${events.length} events received`);
-
-    let ok = 0, failed = 0;
-    for (const e of events) {
-      const id  = e.id ?? "";
-      const url = `https://terplink.umd.edu/event/${id}`;
-      const start = e.startsOn ? new Date(e.startsOn).toISOString().split("T")[0] : null;
-
-      const row = {
-        title:       (e.name ?? "").trim(),
-        url,
-        deadline:    start,
-        description: e.description ? String(e.description).replace(/<[^>]+>/g, "").slice(0, 400) : null,
-        source:      "terplink.umd.edu",
-        category:    "event" as Category,
-        scraped_at:  new Date().toISOString(),
-      };
-      if (!row.title || !row.url) continue;
-
-      const { error } = await supabase.from("opportunities").upsert(row, { onConflict: "url", ignoreDuplicates: false });
-      auditLog.push({ title: row.title, url, deadline_raw: e.startsOn ?? null, deadline_resolved: start, resolution: start ? "iso" : "already_null", category: "event", status: error ? "failed" : "ok", error: error?.message });
-      error ? failed++ : ok++;
-    }
-    console.log(`    → ${ok} ok, ${failed} failed`);
-  } catch (err) {
-    console.error("  ✗ TerpLink fatal:", err);
-  }
-}
-
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   console.log("Vantage Scout starting…");
-  console.log(`Targeting ${TARGET_URLS.length} scholarship portals + TerpLink + CS News\n`);
+  console.log(`Targeting ${TARGET_URLS.length} portals\n`);
 
   const auditLog: AuditRow[] = [];
   const start = Date.now();
@@ -388,7 +353,6 @@ async function main() {
     }
   }
 
-  await syncTerpLink(auditLog);
 
   printAuditReport(auditLog, Date.now() - start);
   console.log("Scout complete.");
