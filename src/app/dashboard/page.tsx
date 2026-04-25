@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-white flex flex-col">
+    <div className="min-h-screen bg-[#080c14] text-white flex flex-col" data-vantage-user-id={userId}>
       {/* Ambient glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-32 right-0 w-[500px] h-[400px] rounded-full bg-[#2dcfbe]/6 blur-[100px]" />
