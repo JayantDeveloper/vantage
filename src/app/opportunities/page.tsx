@@ -6,8 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-// Force dynamic — Supabase admin client requires the service role key at runtime,
-// and opportunities data changes frequently enough that ISR pre-rendering isn't worth it.
 export const dynamic = "force-dynamic";
 
 export default async function OpportunitiesPage() {
@@ -24,8 +22,14 @@ export default async function OpportunitiesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
+    <div className="min-h-screen bg-[#080c14] text-white flex flex-col">
+      {/* Ambient glows */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-20 left-1/3 w-[600px] h-[300px] rounded-full bg-[#2dcfbe]/5 blur-[100px]" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] rounded-full bg-[#1a2948]/50 blur-[80px]" />
+      </div>
+
+      <nav className="relative flex items-center justify-between px-8 py-5 border-b border-white/8">
         <NavLogo />
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white transition-colors">
@@ -38,70 +42,101 @@ export default async function OpportunitiesPage() {
         </div>
       </nav>
 
-      <main className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
+      <main className="relative flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Opportunities</h1>
             <p className="text-zinc-500 text-sm mt-1">
-              {opps?.length ?? 0} scholarships & grants indexed
+              <span className="text-[#2dcfbe] font-semibold">{opps?.length ?? 0}</span> scholarships &amp; grants indexed
             </p>
           </div>
         </div>
 
         {!opps || opps.length === 0 ? (
-          <div className="text-center py-24 text-zinc-600">
-            <p className="text-lg">No opportunities yet.</p>
-            <p className="text-sm mt-1">Run <code className="font-mono text-zinc-400">npm run scout</code> to populate the database.</p>
+          <div className="rounded-2xl border border-white/8 bg-zinc-950/40 py-24 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-[#2dcfbe]/10 border border-[#2dcfbe]/20 flex items-center justify-center mx-auto">
+              <svg className="w-5 h-5 text-[#2dcfbe]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <p className="text-zinc-400 font-medium">No opportunities yet.</p>
+            <p className="text-zinc-600 text-sm">
+              Run <code className="font-mono text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded">npm run scout</code> to populate the database.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {opps.map((opp) => (
-              <Card key={opp.id} className="bg-zinc-950 border-white/10 hover:border-white/25 transition-colors">
-                <CardContent className="flex items-start justify-between py-5 gap-4">
-                  <div className="space-y-1.5 flex-1 min-w-0">
-                    <p className="font-semibold truncate">{opp.title}</p>
-                    {opp.description && (
-                      <p className="text-zinc-500 text-sm line-clamp-2">{opp.description}</p>
-                    )}
-                    <div className="flex items-center gap-3 text-xs text-zinc-600">
-                      {opp.deadline && (
-                        <span>
-                          Deadline: {new Date(opp.deadline).toLocaleDateString("en-US", {
-                            month: "short", day: "numeric", year: "numeric",
-                          })}
-                        </span>
-                      )}
-                      {opp.source && <span>· {opp.source}</span>}
-                    </div>
-                  </div>
+            {opps.map((opp) => {
+              const daysLeft = opp.deadline
+                ? Math.ceil((new Date(opp.deadline).getTime() - Date.now()) / 86400000)
+                : null;
+              const urgent   = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
+              const upcoming = daysLeft !== null && daysLeft > 14 && daysLeft <= 60;
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    {opp.match_score != null && (
-                      <Badge
-                        className={
-                          opp.match_score >= 80
-                            ? "bg-green-500/20 text-green-400 border-green-500/30"
-                            : opp.match_score >= 50
-                            ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-                            : "bg-zinc-800 text-zinc-400 border-white/10"
-                        }
-                      >
-                        {opp.match_score.toFixed(0)}% match
-                      </Badge>
-                    )}
-                    <a href={opp.url} target="_blank" rel="noopener noreferrer">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-white/20 text-white hover:bg-white/10 h-8 text-xs"
-                      >
-                        Apply →
-                      </Button>
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              return (
+                <Card
+                  key={opp.id}
+                  className={`bg-zinc-950/60 backdrop-blur-sm transition-all hover:translate-y-[-1px] hover:shadow-lg ${
+                    urgent   ? "border-[#c4195a]/35 hover:border-[#c4195a]/60 hover:shadow-[#c4195a]/10"
+                    : upcoming ? "border-yellow-500/20 hover:border-yellow-500/40 hover:shadow-yellow-500/8"
+                    : "border-white/8 hover:border-white/20"
+                  }`}
+                >
+                  <CardContent className="flex items-start justify-between py-5 gap-4">
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold truncate">{opp.title}</p>
+                        {urgent && (
+                          <span className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#c4195a] bg-[#c4195a]/10 border border-[#c4195a]/25 px-1.5 py-0.5 rounded">
+                            {daysLeft === 0 ? "today" : `${daysLeft}d left`}
+                          </span>
+                        )}
+                      </div>
+                      {opp.description && (
+                        <p className="text-zinc-500 text-sm line-clamp-2">{opp.description}</p>
+                      )}
+                      <div className="flex items-center gap-3 text-xs">
+                        {opp.deadline && (
+                          <span className={urgent ? "text-[#c4195a]" : upcoming ? "text-yellow-500/80" : "text-zinc-600"}>
+                            Deadline:{" "}
+                            {new Date(opp.deadline).toLocaleDateString("en-US", {
+                              month: "short", day: "numeric", year: "numeric",
+                            })}
+                          </span>
+                        )}
+                        {opp.source && (
+                          <span className="text-zinc-700">· {opp.source}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      {opp.match_score != null && (
+                        <Badge
+                          className={
+                            opp.match_score >= 80
+                              ? "bg-[#2dcfbe]/15 text-[#2dcfbe] border-[#2dcfbe]/30"
+                              : opp.match_score >= 50
+                              ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/25"
+                              : "bg-zinc-800/60 text-zinc-500 border-white/8"
+                          }
+                        >
+                          {opp.match_score.toFixed(0)}% match
+                        </Badge>
+                      )}
+                      <a href={opp.url} target="_blank" rel="noopener noreferrer">
+                        <Button
+                          size="sm"
+                          className="bg-[#2dcfbe]/10 border border-[#2dcfbe]/25 text-[#2dcfbe] hover:bg-[#2dcfbe]/20 h-8 text-xs font-medium"
+                        >
+                          Apply →
+                        </Button>
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </main>

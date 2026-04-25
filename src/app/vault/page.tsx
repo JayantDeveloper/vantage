@@ -149,16 +149,22 @@ export default function VaultPage() {
   const isBusy = status === "parsing" || status === "saving";
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="min-h-screen bg-[#080c14] text-white flex flex-col">
+      {/* Ambient glows */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-24 right-1/4 w-[500px] h-[350px] rounded-full bg-[#2dcfbe]/6 blur-[100px]" />
+        <div className="absolute bottom-0 left-0 w-[350px] h-[300px] rounded-full bg-[#c4195a]/5 blur-[90px]" />
+      </div>
+
       {/* Nav */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-white/10">
+      <nav className="relative flex items-center justify-between px-8 py-5 border-b border-white/8">
         <NavLogo />
         <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white transition-colors">
           ← Dashboard
         </Link>
       </nav>
 
-      <main className="flex-1 px-6 py-10 max-w-2xl mx-auto w-full">
+      <main className="relative flex-1 px-6 py-10 max-w-2xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">My Vault</h1>
           <p className="text-zinc-500 text-sm mt-1">
@@ -169,7 +175,7 @@ export default function VaultPage() {
         <form onSubmit={handleSave} className="space-y-6">
 
           {/* ── SECTION 1: CONTEXT DUMP ─────────────────────────────────── */}
-          <Card className="bg-zinc-950 border-white/10">
+          <Card className="bg-zinc-950/60 border-[#2dcfbe]/15 backdrop-blur-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 Context Dump
@@ -200,7 +206,7 @@ export default function VaultPage() {
           </Card>
 
           {/* ── SECTION 2: NARRATIVE ────────────────────────────────────── */}
-          <Card className="bg-zinc-950 border-white/10">
+          <Card className="bg-zinc-950/60 border-white/10 backdrop-blur-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Your Narrative</CardTitle>
               <CardDescription className="text-zinc-500 text-xs">
@@ -220,7 +226,7 @@ export default function VaultPage() {
           </Card>
 
           {/* ── SECTION 3: PARSED PROFILE ───────────────────────────────── */}
-          <Card className="bg-zinc-950 border-white/10">
+          <Card className="bg-zinc-950/60 border-white/10 backdrop-blur-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 Parsed Profile
@@ -379,7 +385,7 @@ export default function VaultPage() {
             <Button
               type="submit"
               disabled={isBusy}
-              className="bg-white text-black hover:bg-zinc-200 font-semibold min-w-36 relative"
+              className="bg-gradient-to-r from-[#2dcfbe] to-[#1ab8a8] text-black hover:brightness-110 font-semibold min-w-36 relative shadow-lg shadow-[#2dcfbe]/20"
             >
               {isBusy ? (
                 <span className="flex items-center gap-2">
