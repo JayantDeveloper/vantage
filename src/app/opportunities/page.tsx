@@ -47,7 +47,7 @@ export default async function OpportunitiesPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Opportunities</h1>
             <p className="text-zinc-500 text-sm mt-1">
-              <span className="text-[#2dcfbe] font-semibold">{opps?.length ?? 0}</span> scholarships &amp; grants indexed
+              <span className="text-[#2dcfbe] font-semibold">{opps?.length ?? 0}</span>{" "}scholarships &amp; grants indexed
             </p>
           </div>
         </div>
