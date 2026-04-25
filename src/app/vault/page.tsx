@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { supabase, type Vault } from "@/lib/supabase";
+import { type Vault } from "@/lib/supabase";
 import { type ParsedVaultFields } from "@/app/api/vault/parse/route";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,15 +31,12 @@ export default function VaultPage() {
   const [skillInput, setSkillInput] = useState("");
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load existing vault
+  // Load existing vault via server route (bypasses RLS)
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("vault")
-      .select("*")
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => {
+    fetch("/api/vault/load")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
         if (data) setVault({ ...data, skills: data.skills ?? [] });
       });
   }, [user]);
@@ -128,17 +125,18 @@ export default function VaultPage() {
       skills:       vault.skills ?? [],
     };
 
-    // Re-read vault state after parse mutation
+    // Re-read vault state after parse mutation, then save via server route
     setVault((latest) => {
       const finalPayload = { ...payload, ...latest, user_id: user.id };
-      supabase
-        .from("vault")
-        .upsert(finalPayload, { onConflict: "user_id" })
-        .then(({ error }) => {
-          setStatus(error ? "error" : "saved");
-          if (error) setErrorMsg(error.message);
-          setTimeout(() => setStatus("idle"), 3000);
-        });
+      fetch("/api/vault/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finalPayload),
+      }).then((r) => {
+        setStatus(r.ok ? "saved" : "error");
+        if (!r.ok) r.json().then((e) => setErrorMsg(e.error ?? "Save failed"));
+        setTimeout(() => setStatus("idle"), 3000);
+      });
       return latest;
     });
   }
