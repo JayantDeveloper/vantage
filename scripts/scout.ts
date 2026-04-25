@@ -1,44 +1,146 @@
 /**
- * Vantage Scout — scrapes UMD scholarship portals via Firecrawl
+ * Vantage Scout — scrapes UMD, CMNS, CS, and MHEC scholarship portals via Firecrawl
  * and upserts results into the Supabase opportunities table.
  *
  * Usage: npx tsx scripts/scout.ts
+ *
+ * Fixes applied (2026-04-24):
+ *   BUG-1  Added normalizeDeadline() — handles Varies/Rolling/natural-language dates
+ *   BUG-2  Removed match_score from upsert payload — preserves user-set scores
+ *   BUG-3  Per-row upsert with isolated error handling — one bad row never kills a batch
+ *   BUG-4  Expanded TARGET_URLS to cover MHEC, CS, CMNS, and OMSE portals
  */
 
 import { createClient } from "@supabase/supabase-js";
 import FirecrawlApp from "@mendable/firecrawl-js";
+import { normalizeDeadline, type DeadlineResolution } from "./deadline";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// ── Environment ────────────────────────────────────────────────────────────────
+const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_KEY      = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY!;
 
-const TARGET_URLS = [
-  "https://financialaid.umd.edu/types-aid/scholarships",
-  "https://giving.umd.edu/giving/scholarships.php",
-  "https://undergraduate.umd.edu/tuition-financial-aid/scholarships-grants",
+// ── Target URLs ───────────────────────────────────────────────────────────────
+// Organised by source so the audit report can group by portal.
+const TARGET_URLS: Array<{ url: string; label: string }> = [
+  // ── UMD Financial Aid ──────────────────────────────────────────────────
+  {
+    url:   "https://financialaid.umd.edu/types-aid/scholarships",
+    label: "UMD Financial Aid — Scholarships",
+  },
+  {
+    url:   "https://financialaid.umd.edu/types-aid/grants",
+    label: "UMD Financial Aid — Grants",
+  },
+  {
+    url:   "https://undergraduate.umd.edu/tuition-financial-aid/scholarships-grants",
+    label: "UMD Undergraduate — Scholarships & Grants",
+  },
+
+  // ── UMD Student Affairs ────────────────────────────────────────────────
+  {
+    url:   "https://sa.umd.edu/crisis-fund",
+    label: "UMD Student Crisis Fund",
+  },
+  {
+    url:   "https://studentaffairs.umd.edu/financial-aid-scholarships",
+    label: "UMD Student Affairs — Financial Aid",
+  },
+
+  // ── CMNS (College of Computer, Math & Natural Sciences) ───────────────
+  {
+    url:   "https://cmns.umd.edu/undergraduate/scholarships",
+    label: "CMNS — Undergraduate Scholarships",
+  },
+  {
+    url:   "https://cmns.umd.edu/current-students/funding",
+    label: "CMNS — Student Funding",
+  },
+
+  // ── CS Department ──────────────────────────────────────────────────────
+  {
+    url:   "https://www.cs.umd.edu/undergraduate/scholarships",
+    label: "UMD CS — Undergraduate Scholarships",
+  },
+  {
+    url:   "https://www.cs.umd.edu/community/scholarships-and-awards",
+    label: "UMD CS — Community Awards",
+  },
+
+  // ── OMSE (Multi-Ethnic Student Education) ─────────────────────────────
+  {
+    url:   "https://omse.umd.edu/scholarships",
+    label: "OMSE — Scholarships",
+  },
+
+  // ── MHEC (Maryland Higher Education Commission) ────────────────────────
+  {
+    url:   "https://mhec.maryland.gov/preparing/Pages/FinancialAid/descriptions.aspx",
+    label: "MHEC — All Aid Programs",
+  },
+  {
+    url:   "https://mhec.maryland.gov/preparing/Pages/FinancialAid/ProgramDescriptions/prog_senatorial.aspx",
+    label: "MHEC — Maryland Senatorial Scholarship",
+  },
+  {
+    url:   "https://mhec.maryland.gov/preparing/Pages/FinancialAid/ProgramDescriptions/prog_conroy.aspx",
+    label: "MHEC — Edward T. Conroy Memorial Scholarship",
+  },
+  {
+    url:   "https://mhec.maryland.gov/preparing/Pages/FinancialAid/ProgramDescriptions/prog_distinguished.aspx",
+    label: "MHEC — Distinguished Scholar Program",
+  },
+  {
+    url:   "https://mhec.maryland.gov/preparing/Pages/FinancialAid/ProgramDescriptions/prog_delegate.aspx",
+    label: "MHEC — Delegate Scholarship",
+  },
 ];
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 type ScrapedOpportunity = {
-  title: string;
-  url: string;
-  deadline: string | null;
+  title:       string;
+  url:         string;
+  deadline:    string | null;
   description: string | null;
-  source: string;
+  source:      string;
+  label:       string;
 };
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+type AuditRow = {
+  title:              string;
+  url:                string;
+  deadline_raw:       string | null;
+  deadline_resolved:  string | null;
+  resolution:         DeadlineResolution;
+  status:             "ok" | "failed";
+  error?:             string;
+};
+
+// ── Clients ───────────────────────────────────────────────────────────────────
+const supabase  = createClient(SUPABASE_URL, SUPABASE_KEY);
 const firecrawl = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 
-async function scrapePage(url: string): Promise<ScrapedOpportunity[]> {
-  console.log(`Scraping: ${url}`);
+// normalizeDeadline imported from ./deadline
 
-  const result = await firecrawl.scrape(url, {
+// ── Scrape a single URL ───────────────────────────────────────────────────────
+async function scrapePage(
+  target: (typeof TARGET_URLS)[number]
+): Promise<ScrapedOpportunity[]> {
+  console.log(`\n  Scraping: ${target.label}`);
+
+  const result = await firecrawl.scrape(target.url, {
     formats: ["extract"],
     extract: {
-      prompt: `Extract all scholarships and grants listed on this page.
-For each opportunity return: title (string), url (string, full URL or the page URL if no link),
-deadline (string in YYYY-MM-DD format or null), description (string, 1-3 sentences max).
-Return a JSON array of objects with keys: title, url, deadline, description.`,
+      prompt: `Extract ALL scholarships, grants, and financial aid programs listed on this page.
+For each opportunity return:
+  - title: the full official name (string)
+  - url: direct link to the scholarship detail page, or this page's URL if none exists (string)
+  - deadline: the application deadline EXACTLY as written on the page (string or null).
+    Do NOT convert it — return the raw text (e.g. "June 1, 2026", "Varies", "Rolling", "Expected Open September 2026").
+  - description: 1–3 sentence summary of eligibility and award amount (string or null)
+
+Return a JSON object with key "opportunities" containing an array of the above objects.
+If no scholarships are found on this page, return { "opportunities": [] }.`,
       schema: {
         type: "object",
         properties: {
@@ -47,9 +149,9 @@ Return a JSON array of objects with keys: title, url, deadline, description.`,
             items: {
               type: "object",
               properties: {
-                title: { type: "string" },
-                url: { type: "string" },
-                deadline: { type: "string", nullable: true },
+                title:       { type: "string" },
+                url:         { type: "string" },
+                deadline:    { type: "string", nullable: true },
                 description: { type: "string", nullable: true },
               },
               required: ["title", "url"],
@@ -62,55 +164,181 @@ Return a JSON array of objects with keys: title, url, deadline, description.`,
   });
 
   if (!result.success || !result.extract) {
-    console.warn(`  ⚠ No extract from ${url}`);
+    console.warn(`    ⚠ No extract returned`);
     return [];
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const items = (result.extract as any).opportunities ?? [];
-  return items.map((item: ScrapedOpportunity) => ({
+  const items: ScrapedOpportunity[] = ((result.extract as any).opportunities ?? []);
+  return items.map((item) => ({
     ...item,
-    source: new URL(url).hostname,
+    deadline:    item.deadline ?? null,
+    description: item.description ?? null,
+    source:      new URL(target.url).hostname,
+    label:       target.label,
   }));
 }
 
-async function upsertOpportunities(opps: ScrapedOpportunity[]) {
-  if (opps.length === 0) return;
-
-  const rows = opps.map((opp) => ({
-    title: opp.title,
-    url: opp.url,
-    deadline: opp.deadline ?? null,
-    description: opp.description ?? null,
-    source: opp.source,
-    match_score: null, // scored later per-user via Claude
-    scraped_at: new Date().toISOString(),
-  }));
-
-  const { error } = await supabase
-    .from("opportunities")
-    .upsert(rows, { onConflict: "url", ignoreDuplicates: false });
-
-  if (error) {
-    console.error("  ✗ Upsert error:", error.message);
-  } else {
-    console.log(`  ✓ Upserted ${rows.length} opportunities`);
+// ── BUG-2 + BUG-3 FIX: Per-row upsert, no match_score in payload ─────────────
+async function upsertOpportunities(
+  opps: ScrapedOpportunity[],
+  auditLog: AuditRow[]
+): Promise<void> {
+  if (opps.length === 0) {
+    console.log("    — No opportunities extracted from this page");
+    return;
   }
-}
 
-async function main() {
-  console.log("Vantage Scout starting...\n");
+  let ok = 0, failed = 0;
 
-  for (const url of TARGET_URLS) {
-    try {
-      const opps = await scrapePage(url);
-      await upsertOpportunities(opps);
-    } catch (err) {
-      console.error(`  ✗ Failed scraping ${url}:`, err);
+  for (const opp of opps) {
+    const { value: deadline, resolution } = normalizeDeadline(opp.deadline);
+
+    // BUG-2 FIX: match_score is intentionally ABSENT from this payload.
+    // Supabase's upsert ON CONFLICT DO UPDATE only touches listed columns,
+    // so existing user-set match_score values are preserved on update.
+    const row = {
+      title:       opp.title,
+      url:         opp.url,
+      deadline,                      // normalised or null — always Postgres-safe
+      description: opp.description,
+      source:      opp.source,
+      scraped_at:  new Date().toISOString(),
+      // match_score: intentionally omitted
+    };
+
+    // BUG-3 FIX: per-row try/catch — one bad record never kills the batch
+    const { error } = await supabase
+      .from("opportunities")
+      .upsert(row, { onConflict: "url", ignoreDuplicates: false });
+
+    const auditRow: AuditRow = {
+      title:             opp.title,
+      url:               opp.url,
+      deadline_raw:      opp.deadline,
+      deadline_resolved: deadline,
+      resolution,
+      status:            error ? "failed" : "ok",
+      error:             error?.message,
+    };
+
+    auditLog.push(auditRow);
+
+    if (error) {
+      console.error(`    ✗ [${opp.title}]: ${error.message}`);
+      failed++;
+    } else {
+      const dlLabel = deadline
+        ? `${deadline} (${resolution})`
+        : `null (${resolution})`;
+      console.log(`    ✓ ${opp.title} | deadline: ${dlLabel}`);
+      ok++;
     }
   }
 
-  console.log("\nScout complete.");
+  console.log(`    → ${ok} ok, ${failed} failed`);
+}
+
+// ── Audit report printer ──────────────────────────────────────────────────────
+function printAuditReport(auditLog: AuditRow[], elapsed: number): void {
+  const total      = auditLog.length;
+  const ok         = auditLog.filter((r) => r.status === "ok").length;
+  const failed     = auditLog.filter((r) => r.status === "failed").length;
+  const nullified  = auditLog.filter((r) => r.resolution === "nullified").length;
+  const naturalLang = auditLog.filter((r) =>
+    ["natural_language", "month_year", "fuzzy"].includes(r.resolution)
+  ).length;
+
+  // Check for the three benchmark scholarships
+  const BENCHMARKS: Array<{ name: string; match: RegExp; expectedDeadline: string; expectedUrl?: string }> = [
+    {
+      name:             "Maryland Senatorial Scholarship",
+      match:            /senatorial/i,
+      expectedDeadline: "2026-06-01",
+    },
+    {
+      name:             "Edward T. Conroy Memorial Scholarship",
+      match:            /conroy/i,
+      expectedDeadline: "2026-07-15",
+    },
+    {
+      name:             "UMD Student Crisis Fund",
+      match:            /crisis\s*fund/i,
+      expectedDeadline: "",
+      expectedUrl:      "sa.umd.edu/crisis-fund",
+    },
+  ];
+
+  console.log("\n");
+  console.log("═══════════════════════════════════════════════════════════════");
+  console.log("  VANTAGE SCOUT — ACCURACY REPORT");
+  console.log(`  Run at: ${new Date().toISOString()} | Duration: ${(elapsed / 1000).toFixed(1)}s`);
+  console.log("═══════════════════════════════════════════════════════════════");
+  console.log(`  Total opportunities processed : ${total}`);
+  console.log(`  Successfully upserted         : ${ok}`);
+  console.log(`  Failed                        : ${failed}`);
+  console.log(`  Deadlines → null (ambiguous)  : ${nullified}`);
+  console.log(`  Deadlines normalised (NLP)    : ${naturalLang}`);
+  console.log("───────────────────────────────────────────────────────────────");
+  console.log("  BENCHMARK SCHOLARSHIP CHECK");
+
+  for (const bm of BENCHMARKS) {
+    const found = auditLog.find((r) => bm.match.test(r.title));
+    if (!found) {
+      console.log(`  ✗ MISSING  : ${bm.name}`);
+      continue;
+    }
+    const dlOk = !bm.expectedDeadline || found.deadline_resolved === bm.expectedDeadline;
+    const urlOk = !bm.expectedUrl   || found.url.includes(bm.expectedUrl);
+    const allOk = found.status === "ok" && dlOk && urlOk;
+    const icon  = allOk ? "✓" : "⚠";
+    console.log(`  ${icon} ${allOk ? "FOUND   " : "PARTIAL "}: ${bm.name}`);
+    if (!dlOk) {
+      console.log(`      deadline mismatch: expected ${bm.expectedDeadline}, got ${found.deadline_resolved}`);
+    }
+    if (!urlOk) {
+      console.log(`      url mismatch: expected to contain ${bm.expectedUrl}, got ${found.url}`);
+    }
+  }
+
+  if (failed > 0) {
+    console.log("───────────────────────────────────────────────────────────────");
+    console.log("  FAILED ROWS");
+    for (const r of auditLog.filter((r) => r.status === "failed")) {
+      console.log(`  ✗ [${r.title}]: ${r.error}`);
+    }
+  }
+
+  if (nullified > 0) {
+    console.log("───────────────────────────────────────────────────────────────");
+    console.log("  NULLIFIED DEADLINES (non-standard formats)");
+    for (const r of auditLog.filter((r) => r.resolution === "nullified")) {
+      console.log(`  — "${r.deadline_raw}" → null  [${r.title}]`);
+    }
+  }
+
+  console.log("═══════════════════════════════════════════════════════════════\n");
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+async function main() {
+  console.log("Vantage Scout starting…");
+  console.log(`Targeting ${TARGET_URLS.length} portals\n`);
+
+  const auditLog: AuditRow[] = [];
+  const start = Date.now();
+
+  for (const target of TARGET_URLS) {
+    try {
+      const opps = await scrapePage(target);
+      await upsertOpportunities(opps, auditLog);
+    } catch (err) {
+      console.error(`  ✗ Fatal error scraping ${target.label}:`, err);
+    }
+  }
+
+  printAuditReport(auditLog, Date.now() - start);
+  console.log("Scout complete.");
 }
 
 main().catch((err) => {
